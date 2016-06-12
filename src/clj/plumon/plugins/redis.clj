@@ -5,6 +5,7 @@
   [conn key]
   ;;(println "getting it: conn:" conn ":key:" key "val" (wcar conn (redis/lindex key 0)))
   (try
+    ;; assumes storing in a list
     (wcar conn (redis/lindex key 0))
     (catch Exception e
       (println (str "exception connecting to redis: " (.getMessage e)))
@@ -12,5 +13,5 @@
 
 (defn run
   [conn {:keys [host metric-key]}]
-  (let [sinr-val (get-redis-last conn metric-key)]
-    {:metric (Double. sinr-val)}))
+  (let [val (get-redis-last conn metric-key)]
+    {:metric (Double. val)}))
