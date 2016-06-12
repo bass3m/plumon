@@ -1,0 +1,37 @@
+version: '2'
+services:
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+  rethinkdb:
+    image: rethinkdb
+    ports:
+      - "8080:8080"
+      - "28015:28015"
+    volumes:
+      - .:/data
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+     - graphite
+  riemann:
+    image: rlister/riemann
+    ports:
+      - "5555:5555"
+      - "5555:5555/udp"
+      - "5556:5556"
+    depends_on:
+     - graphite
+    volumes:
+      - .:/app/etc
+  graphite:
+    image: hopsoft/graphite-statsd
+    ports:
+      - "8090:80"
+      - "2003:2003"
+      - "2004:2004"
+      - "2023:2023"
+      - "2024:2024"
