@@ -1,0 +1,29 @@
+[{:description "ping plugin"
+  :run plumon.plugins.ping/run
+  :type :riemann
+  :event {:service "internet latency"
+          :description "ping time to 8.8.8.8"
+          :tags ["network"]}
+  :options {:timeout 10000
+            :args {:tohost "8.8.8.8" :timeout 5000 :threshold 20.0}}}
+ {:description "rethink plugin"
+  :run plumon.plugins.rethinktest/run
+  :type :riemann-test
+  :kind :rethink
+  :event {:service "rethink test"
+          :description "testing rethinkdb"
+          :tags ["db"]}
+  :options {:timeout 10000
+            :args {:db "test"
+                   :table "test"
+                   :metric-key ""}}}
+ {:description "redis plugin"
+  :run plumon.plugins.redis/run
+  :type :riemann
+  :kind :redis
+  :event {:service "redis test metric"
+          :description "some redis test metric"
+          :tags ["redis"]}
+  :options {:timeout 1000
+            :args {:host "127.0.0.1"
+                   :metric-key "some:redis:metric"}}}]
