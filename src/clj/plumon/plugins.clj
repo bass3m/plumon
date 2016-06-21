@@ -27,6 +27,7 @@
         pubsub-chan (-> options :args :channel)
         redis-host (-> options :args :host)
         redis-port (-> options :args :port)
+        redis-conn {:pool {} :spec {:host redis-host :port (or redis-port 6379)}}
         listener-key (str redis-host ":" redis-port)
         listener (or (@(:redis system) listener-key)
                      (create-redis-listener redis-host redis-port (:redis system) listener-key))]
@@ -38,7 +39,9 @@
           (redis/subscribe pubsub-chan)))
       (swap! (:state listener) assoc pubsub-chan
              (fn [msg]
-               (async/>!! out (if (:args options) (run msg (:args options)) (run msg))))))
+               (async/>!! out (if (:args options)
+                                (run msg redis-conn (:args options))
+                                (run redis-conn msg))))))
     out))
 
 ;; XXX TODO make this an atom and memoize redis connections
@@ -131,7 +134,7 @@
   (r/riemann-send {:description (-> from :event :description)
                    :metric (:metric val)
                    :threshold (:threshold val)
-                   :service (-> from :event :service)
+                   :service (or (:service val) (-> from :event :service))
                    :tag (-> from :event :tags)
                    :state (:state val)
                    :opts val}))
