@@ -20,7 +20,7 @@
     (async/go-loop []
       (let [[v c] (async/alts! [plugins-chan])]
         (condp = c
-          plugins-chan (plugins/handle-plugins v)))
+          plugins-chan (when v (plugins/handle-plugins v))))
       (recur))))
 
 (defn run []
