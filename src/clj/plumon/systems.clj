@@ -30,6 +30,7 @@
 
 (defsystem dev-system
   [:cfg (dev-cfg/cfg)
+   :redis (atom {})
    :redis-listener (redis-listener (dev-cfg/cfg))
    :rethink (connect-to-rethink (dev-cfg/cfg))
    :riemann (tcp-client {:host (-> (dev-cfg/cfg) :stream-processor :host)
@@ -38,5 +39,6 @@
 (defsystem prod-system
   [:repl-server (new-repl-server (Integer. (env :repl-port)))
    :cfg (prod-cfg/cfg)
+   :redis (atom {})
    :riemann (tcp-client {:host (-> (prod-cfg/cfg) :stream-processor :host)
                          :port (-> (prod-cfg/cfg) :stream-processor :port)})])

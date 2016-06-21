@@ -10,18 +10,35 @@
 
 (defmulti run-plugin (fn [in-chan {:keys [kind]}] kind))
 
+(defn create-redis-listener
+  [redis-host redis-port redis-listeners-atom listener-key]
+  (try
+    (let [listener (redis/with-new-pubsub-listener {:host redis-host :port redis-port} {})]
+      (swap! redis-listeners-atom assoc listener-key listener)
+      listener)
+    (catch Exception e
+      (println (str "exception connecting to redis: " (.getMessage e)))
+      false)))
+
 (defmethod run-plugin :redis-pubsub
   [in-chan {:keys [options run] :as plugin}]
-  ;; grab from system
   (println "redis pubsub push plugin called :plugin:" plugin)
   (let [out (async/chan)
-        pubsub-chan (s/join ":" [(-> options :args :module) (-> options :args :redis-channel)])]
+        pubsub-chan (-> options :args :channel)
+        redis-host (-> options :args :host)
+        redis-port (-> options :args :port)
+        listener-key (str redis-host ":" redis-port)
+        listener (or (@(:redis system) listener-key)
+                     (create-redis-listener redis-host redis-port (:redis system) listener-key))]
     ;; add the subscription to redis listener
-    (redis/with-open-listener (:redis-listener system)
-      (redis/subscribe pubsub-chan))
-    (swap! (:state (:redis-listener system)) assoc pubsub-chan
-           (fn [msg]
-             (async/>!! out (if (:args options) (run msg (:args options)) (run msg)))))
+    (when listener
+      (redis/with-open-listener listener
+        (if (true? (-> options :args :pattern))
+          (redis/psubscribe pubsub-chan)
+          (redis/subscribe pubsub-chan)))
+      (swap! (:state listener) assoc pubsub-chan
+             (fn [msg]
+               (async/>!! out (if (:args options) (run msg (:args options)) (run msg))))))
     out))
 
 ;; XXX TODO make this an atom and memoize redis connections
@@ -29,7 +46,8 @@
   [in-chan {:keys [options run] :as plugin}]
   (println "redis run-plugin called :plugin:" plugin)
   (let [out (async/chan)
-        conn {:pool {} :spec {:host (-> options :args :host) :port 6379}}]
+        conn {:pool {} :spec {:host (-> options :args :host)
+                              :port (or (-> options :args :port) 6379)}}]
     (async/go-loop []
       ;; or grab the output from plugin chan
       (let [[v c] (async/alts! [(async/timeout (or (:timeout options) 1000)) in-chan])]
@@ -98,7 +116,7 @@
       (let [[v ch] (async/alts! out-chans)
             which-plugin (reduce (fn [acc p]
                                    (if (= (:out-chan p) ch) (conj acc p) acc)) []
-                                 plugins-with-chans)]
+                                   plugins-with-chans)]
         ;;(println "Got output from plugin:" which-plugin ":val:" v)
         (async/>! out {:from (first which-plugin) :val v})
         (recur)))
