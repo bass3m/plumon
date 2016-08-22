@@ -1,4 +1,5 @@
-(ns plumon.plugins.ping)
+(ns plumon.plugins.ping
+  (:require [taoensso.timbre :as log :refer (tracef debugf infof warnf errorf)]))
 
 (defn timed-ping
   "Time an .isReachable ping to a given host. needs sudo"
@@ -7,7 +8,7 @@
         start (. System (nanoTime))
         result (.isReachable addr timeout)
         total (/ (double (- (. System (nanoTime)) start)) 1000000.0)]
-    (println "ping to:" host ":took:" total ":result:" result)
+    (tracef "ping to: %s took %s result %s" host total result)
     {:metric total
      :state (if result "ok" "error")}))
 

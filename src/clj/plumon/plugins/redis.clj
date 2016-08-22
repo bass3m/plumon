@@ -14,4 +14,4 @@
 (defn run
   [conn {:keys [host metric-key]}]
   (let [val (get-redis-last conn metric-key)]
-    {:metric (Double. val)}))
+    {:metric (if (string? val) (Double. val) 0.0)}))

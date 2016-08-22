@@ -5,6 +5,7 @@
             [clojure.java.io :as io]
             [reloaded.repl :refer [system]]
             [rethinkdb.query :as rethink]
+            [taoensso.timbre :as log :refer (tracef debugf infof warnf errorf)]
             [taoensso.carmine :as redis :refer (wcar)]
             [plumon.riemann :as r]))
 
@@ -17,37 +18,46 @@
       (swap! redis-listeners-atom assoc listener-key listener)
       listener)
     (catch Exception e
-      (println (str "exception connecting to redis: " (.getMessage e)))
+      (errorf "exception connecting to redis: %s" (.getMessage e))
       false)))
+
+(defn redis-cb
+  [redis-conn run options key-name out msg]
+  ;;(println "redis-cb: conn:" redis-conn "key-name" key-name "msg:" msg)
+  (async/>!! out (or (if (:args options)
+                       (run redis-conn msg (:args options))
+                       (run redis-conn msg)) false)))
 
 (defmethod run-plugin :redis-pubsub
   [in-chan {:keys [options run] :as plugin}]
-  (println "redis pubsub push plugin called :plugin:" plugin)
+  (debugf "redis pubsub push plugin called :plugin: %s" plugin)
   (let [out (async/chan)
         pubsub-chan (-> options :args :channel)
         redis-host (-> options :args :host)
         redis-port (-> options :args :port)
+        key-name (or (-> options :args :key-name) "") ;; should warn that it's invalid cfg
         redis-conn {:pool {} :spec {:host redis-host :port (or redis-port 6379)}}
+        cb (partial redis-cb redis-conn run options key-name out)
         listener-key (str redis-host ":" redis-port)
+        pubsub-key (str redis-host ":" redis-port ":" pubsub-chan)
         listener (or (@(:redis system) listener-key)
                      (create-redis-listener redis-host redis-port (:redis system) listener-key))]
     ;; add the subscription to redis listener
+    (debugf "pubsub plugin:options: %s run %s pskey %s" options run pubsub-key)
     (when listener
       (redis/with-open-listener listener
         (if (true? (-> options :args :pattern))
           (redis/psubscribe pubsub-chan)
           (redis/subscribe pubsub-chan)))
+      (swap! (:redis-callbacks system) update pubsub-key conj cb)
       (swap! (:state listener) assoc pubsub-chan
-             (fn [msg]
-               (async/>!! out (if (:args options)
-                                (run msg redis-conn (:args options))
-                                (run redis-conn msg))))))
+             (fn [msg] (dorun (map (fn [f] (f msg)) (@(:redis-callbacks system) pubsub-key))))))
     out))
 
 ;; XXX TODO make this an atom and memoize redis connections
 (defmethod run-plugin :redis
   [in-chan {:keys [options run] :as plugin}]
-  (println "redis run-plugin called :plugin:" plugin)
+  (log/debug "redis run-plugin called :plugin:" plugin)
   (let [out (async/chan)
         conn {:pool {} :spec {:host (-> options :args :host)
                               :port (or (-> options :args :port) 6379)}}]
@@ -120,8 +130,8 @@
             which-plugin (reduce (fn [acc p]
                                    (if (= (:out-chan p) ch) (conj acc p) acc)) []
                                    plugins-with-chans)]
-        ;;(println "Got output from plugin:" which-plugin ":val:" v)
-        (async/>! out {:from (first which-plugin) :val v})
+        (when v
+          (async/>! out {:from (first which-plugin) :val v}))
         (recur)))
     out))
 
@@ -131,13 +141,18 @@
 (defmethod handle-plugins :riemann
   [{:as metric :keys [from val]}]
   ;;(println "riemann event: " from ":val:" val)
-  (r/riemann-send {:description (-> from :event :description)
-                   :metric (:metric val)
-                   :threshold (:threshold val)
-                   :service (or (:service val) (-> from :event :service))
-                   :tag (-> from :event :tags)
-                   :state (:state val)
-                   :opts val}))
+  (try
+    (r/riemann-send {:description (-> from :event :description)
+                     :metric (:metric val)
+                     :threshold (:threshold val)
+                     :service (or (:service val) (-> from :event :service))
+                     :tag (-> from :event :tags)
+                     :tags (-> from :event :tags)
+                     :state (:state val)
+                     :opts val})
+    (catch Exception e
+      (errorf "exception to riemann: %s metric %s" (.getMessage e) metric)
+      false)))
 
 (defmethod handle-plugins :default
   [{:as metric :keys [from val]}]
