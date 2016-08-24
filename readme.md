@@ -8,16 +8,16 @@
 ------------
 
 
-An clojure service mainly used for monitoring that supports plugins. 
+A clojure service mainly used for monitoring which supports user-defined plugins.
 
 plumon supports getting metrics through: polling, some push mechanism (like redis pubsub, or rethinkdb). plumon at the moment can output metrics to [riemann](riemann.io). However, in the future, i'm planning to add additional targets.
 
 
-plumon makes use of plugins in order to make it easy for a user to get his/her metric to riemann/graphite. 
+plumon makes use of plugins in order to make it easy for a user to get his/her metric to riemann/graphite.
 
 The way i typically use it, is to have plumon feed metrics to riemann. riemann does some basic filtering and sends any alerts to slack/email etc.., riemann then sends certain metrics to [graphite](http://graphite.wikidot.com/). [grafana](grafana.net) is then used as a dashboard.
 
-I've also include the [docker compose](https://docs.docker.com/compose/) config file that i use. 
+I've also include the [docker compose](https://docs.docker.com/compose/) config file that i use.
 
 More on plugins and how to create your own below.
 
@@ -42,7 +42,7 @@ The following variables are configurable and also optional:
 - rethinkdb ip address/port (located in `devcfg/prodcfg.clj`)
 - riemann ip address/port (located in `riemann.config`)
 - you can add other configurations like tokens, keys etc..
-	
+
 
 ## Plugins
 
@@ -50,7 +50,7 @@ The following variables are configurable and also optional:
 #### Plugin basics
 A plugin is a functions that gets invoked by plumon every configurable numbers of second (if polled), or is called as a callback for a push type plugin.
 
-Plugins reside in the plugins directory as a separate clojure namespace. In order to start using a plugin you would need to declare how it's configured in the `plugins.edn` file in the resources directory. 
+Plugins reside in the plugins directory as a separate clojure namespace. In order to start using a plugin you would need to declare how it's configured in the `plugins.edn` file in the resources directory.
 
 
 #### plugins.edn
@@ -77,14 +77,14 @@ options used in `plugins.edn` file:
 - type (optional): indicates the type of metric. In this case, we're forwarding the metric to riemann. Defaults to just output to stdout.
 - kind (optional): the kind of metric to run. possible kinds are: `:redis-pubsub`, `:redis`, `:rethink`. Defaults to a polling metric.
 - event (optional) : used in conjuction with riemann. This defines the event that riemann will use to process.
-- options : 
+- options :
 	* timeout : timeout in milliseconds. How often to poll metric, applies polling plugins.
 	* args : arguments that are passed to the plugin function.
-	
+
 
 ## Adding plugins
 
-Plugins can be added by implemeting a function in a separate namespace in the plugins directory. 
+Plugins can be added by implemeting a function in a separate namespace in the plugins directory.
 
 Here's a simple example of a plugin (in this case, the plugin does nothing more than return a random number):
 
@@ -99,4 +99,3 @@ Here's a simple example of a plugin (in this case, the plugin does nothing more 
 ```
 
 In order to use this plugin, you would need to declare it in the `plugins.edn` and specify how often it should get called, what kind of event would be used if it's sent to riemann etc.. as described above.
-
