@@ -4,6 +4,6 @@
 
 (defn cfg []
   {:db {:db-type :redis
-        :redis-cfg {:pool {} :spec {:host "192.168.99.100" :port 6379}}}
-   :rethink {:host "192.168.99.100" :port 28015 :token 0 :auth-key "" :db "test"}
-   :stream-processor {:type :riemann :host "192.168.99.100" :port 5555}})
+        :redis-cfg {:pool {} :spec {:host "0.0.0.0" :port 6379}}}
+   :rethink {:host "0.0.0.0" :port 28015 :token 0 :auth-key "" :db "test"}
+   :stream-processor {:type :riemann :host "0.0.0.0" :port 5555}})

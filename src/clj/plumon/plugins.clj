@@ -142,7 +142,7 @@
   [{:as metric :keys [from val]}]
   ;;(println "riemann event: " from ":val:" val)
   (try
-    (r/riemann-send {:description (-> from :event :description)
+    (r/riemann-send {:description (or (:description val) (-> from :event :description))
                      :metric (:metric val)
                      :threshold (:threshold val)
                      :service (or (:service val) (-> from :event :service))
@@ -151,7 +151,7 @@
                      :state (:state val)
                      :opts val})
     (catch Exception e
-      (errorf "exception to riemann: %s metric %s" (.getMessage e) metric)
+      (errorf "exception connecting to riemann: %s" (.getMessage e))
       false)))
 
 (defmethod handle-plugins :default

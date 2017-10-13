@@ -5,4 +5,4 @@
 (defn cfg []
   {:db {:db-type :redis
         :redis-cfg {:pool {} :spec {:host "127.0.0.1" :port 6379}}}
-   :stream-processor {:type :riemann :host "192.168.99.100" :port 32778}})
+   :stream-processor {:type :riemann :host "0.0.0.0" :port 5555}})
